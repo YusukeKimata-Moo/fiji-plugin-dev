@@ -60,4 +60,4 @@ fiji-plugin-dev/
 
 ## License
 
-MIT
+MIT License. See [LICENSE](LICENSE) for details.
