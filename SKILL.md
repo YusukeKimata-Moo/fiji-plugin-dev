@@ -1,12 +1,6 @@
 ---
 name: fiji-plugin-dev
-description: >
-  Develop, build, and deploy Fiji/ImageJ plugins in Java.
-  Use when: writing or modifying ImageJ plugin Java source, setting up build scripts
-  for Fiji plugins, creating plugin GUIs with Swing, bundling external JARs (fat jar),
-  configuring plugins.config, or deploying plugins to Fiji.
-  Triggers: "ImageJ plugin", "Fiji plugin", "PlugIn interface", "plugins.config",
-  "build.sh for Fiji", "fat jar for Fiji".
+description: Develop, build, and deploy Java plugins for Fiji/ImageJ, including plugin GUIs, plugins.config, and JAR packaging. Use for plugin implementation; not routine image analysis, macro execution, or merely launching Fiji.
 ---
 
 # Fiji/ImageJ Plugin Development
@@ -45,72 +39,22 @@ public class MyPlugin implements PlugIn {
 
 Other interfaces: `PlugInFilter` (requires open image), `PlugInFrame` (window-based).
 
-## Build Script Pattern
+## Build and packaging
 
-Fiji's install location differs on every machine, so never hardcode it. Instead:
+Fiji's install location differs on every machine; do not hardcode it in reusable build instructions.
 
-1. Check `references/fiji_path.txt`. If it holds a valid directory, use it.
-2. If it's empty or invalid, ask the user for their Fiji install location once, then save it to `references/fiji_path.txt` so later builds on this machine don't need to ask again.
+1. Check `references/fiji_path.txt` for a valid directory.
+2. If absent or invalid, use a valid location already supplied by the user or environment instructions; otherwise ask once. Save the resolved location to `references/fiji_path.txt` for later builds.
 
-```bash
-FIJI_PATH_FILE="references/fiji_path.txt"
-FIJI_DIR="${1:-$(cat "$FIJI_PATH_FILE" 2>/dev/null)}"
+Before creating or changing a build script, read [references/build.md](references/build.md) for the compile, package, and fat-JAR recipes. Classpath separators are `;` on Windows (including Git Bash) and `:` on macOS/Linux.
 
-if [ -z "$FIJI_DIR" ] || [ ! -d "$FIJI_DIR" ]; then
-  echo "Fiji install location not set. Write it to references/fiji_path.txt (one line)."
-  exit 1
-fi
+Compile against Fiji's own JARs. Bundle dependencies only when absent from Fiji's `jars/`; do not bundle Fiji-provided `ij-*.jar`, `commons-math3-*.jar`, or `imglib2-*.jar`.
 
-IJ=$(ls "$FIJI_DIR"/jars/ij-*.jar 2>/dev/null | head -1)
+## GUI patterns
 
-javac -cp "${IJ};${OTHER_JARS}" -d build src/*.java
-cp plugins.config build/
-cd build && jar cf ../MyPlugin.jar plugins.config *.class && cd ..
-```
+Use a non-modal Swing window with `DISPOSE_ON_CLOSE` when Fiji must remain interactive, or ImageJ's `GenericDialog` for simple parameters. Handle dialog cancellation before reading values. Run long processing on a background thread.
 
-On Windows (Git Bash), classpath separator is `;`. On macOS/Linux use `:`.
-
-### Fat JAR (bundling non-standard dependencies)
-
-If a dependency is NOT in Fiji's `jars/`, bundle it:
-
-```bash
-cd build && jar xf "$EXTERNAL_JAR" && cd ..
-cd build && jar cf ../MyPlugin.jar plugins.config *.class org/ && cd ..
-```
-
-Common Fiji-bundled JARs (do NOT bundle):
-- `ij-*.jar`, `commons-math3-*.jar`, `imglib2-*.jar`
-
-## GUI Patterns
-
-Swing GUI (non-modal, Fiji stays interactive):
-
-```java
-JFrame frame = new JFrame("My Plugin");
-frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-frame.setLayout(new GridBagLayout());
-// Add components...
-frame.pack();
-frame.setLocationRelativeTo(null);
-frame.setVisible(true);
-```
-
-Simple parameter dialog (ImageJ built-in):
-
-```java
-GenericDialog gd = new GenericDialog("Parameters");
-gd.addNumericField("Window size", 65, 0);
-gd.showDialog();
-if (gd.wasCanceled()) return;
-double val = gd.getNextNumber();
-```
-
-Run long processing on a background thread:
-
-```java
-new Thread(() -> processData()).start();
-```
+Read [references/gui.md](references/gui.md) when implementing these GUI patterns.
 
 ## Common APIs
 
@@ -129,4 +73,4 @@ Core classes: `ImagePlus`, `ImageStack`, `ImageProcessor`.
 2. Copy JAR to `Fiji/plugins/`
 3. Restart Fiji
 
-See `references/fiji_api_tips.md` for additional API patterns.
+For image access, hyperstacks, ROI/overlays, file I/O, transforms, batch processing, or debugging, read [references/fiji_api_tips.md](references/fiji_api_tips.md).
